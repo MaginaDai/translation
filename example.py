@@ -8,7 +8,7 @@ from __future__ import unicode_literals, print_function, division
 from io import open
 import unicodedata
 import string
-import re
+import re, os
 import random
 import torch
 SOS_token = 0
@@ -274,8 +274,7 @@ def train(input_tensor, target_tensor, encoder, decoder, encoder_optimizer, deco
     loss = 0
 
     for ei in range(input_length):
-        encoder_output, encoder_hidden = encoder(
-            input_tensor[ei], encoder_hidden)
+        encoder_output, encoder_hidden = encoder(input_tensor[ei], encoder_hidden)
         encoder_outputs[ei] = encoder_output[0, 0]
 
     decoder_input = torch.tensor([[SOS_token]], device=device)
@@ -384,7 +383,10 @@ def evaluate(encoder, decoder, sentence, max_length=MAX_LENGTH):
         input_length = input_tensor.size()[0]
         encoder_hidden = encoder.initHidden()
 
-        encoder_outputs = torch.zeros(max_length, encoder.hidden_size, device=device)
+        if model_type == 'bi-lstm':
+            encoder_outputs = torch.zeros(max_length, encoder.hidden_size * 2, device=device)
+        else:
+            encoder_outputs = torch.zeros(max_length, encoder.hidden_size, device=device)
 
         for ei in range(input_length):
             encoder_output, encoder_hidden = encoder(input_tensor[ei],
@@ -392,8 +394,11 @@ def evaluate(encoder, decoder, sentence, max_length=MAX_LENGTH):
             encoder_outputs[ei] += encoder_output[0, 0]
 
         decoder_input = torch.tensor([[SOS_token]], device=device)  # SOS
-
-        decoder_hidden = encoder_hidden
+        
+        if model_type == 'bi-lstm':
+            decoder_hidden = encoder_hidden[0]
+        else:
+            decoder_hidden = encoder_hidden
 
         decoded_words = []
 
@@ -489,7 +494,16 @@ epochs = 20
 encoder1 = EncoderRNN(input_lang.n_words, hidden_size, model_type).to(device)
 decoder1 = Decoder(hidden_size, output_lang.n_words, model_type).to(device)
 
+log_dir = f'runs/{model_type}_h{hidden_size}_e{epochs}'
+
+if not os.path.exists(log_dir):
+    os.makedirs(log_dir)
+
 trainIters(encoder1, decoder1, epochs, print_every=5000)
+
+torch.save({'encoder': encoder1.state_dict(), 
+            'decoder': decoder1.state_dict()},
+            f'{log_dir}/model.pt')
 input,gt,predict,score = test(encoder1, decoder1, train_pairs)
 print("test result")
 input,gt,predict,score = test(encoder1, decoder1, test_pairs)

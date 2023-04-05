@@ -42,13 +42,16 @@ def tensorsFromPair(input_lang, output_lang, pair, device):
     return (input_tensor, target_tensor)
 
 
-def evaluate(input_lang, output_lang, encoder, decoder, sentence, device, max_length=MAX_LENGTH):
+def evaluate(input_lang, output_lang, encoder, decoder, sentence, model_type, device, max_length=MAX_LENGTH):
     with torch.no_grad():
         input_tensor = tensorFromSentence(input_lang, sentence, device)
         input_length = input_tensor.size()[0]
         encoder_hidden = encoder.initHidden()
 
-        encoder_outputs = torch.zeros(max_length, encoder.hidden_size, device=device)
+        if model_type == 'bi-lstm':
+            encoder_outputs = torch.zeros(max_length, encoder.hidden_size * 2, device=device)
+        else:
+            encoder_outputs = torch.zeros(max_length, encoder.hidden_size, device=device)
 
         for ei in range(input_length):
             encoder_output, encoder_hidden = encoder(input_tensor[ei],
@@ -57,7 +60,10 @@ def evaluate(input_lang, output_lang, encoder, decoder, sentence, device, max_le
 
         decoder_input = torch.tensor([[SOS_token]], device=device)  # SOS
 
-        decoder_hidden = encoder_hidden
+        if model_type == 'bi-lstm':
+            decoder_hidden = encoder_hidden[0]
+        else:
+            decoder_hidden = encoder_hidden
 
         decoded_words = []
 
@@ -87,7 +93,7 @@ def evaluateRandomly(pairs, encoder, decoder, n=10):
         print('')
 
 
-def test(inputlang, output_lang, encoder, decoder, testing_pairs, device):
+def test(inputlang, output_lang, encoder, decoder, testing_pairs, model_type, device):
     input = []
     gt = []
     predict = []
@@ -101,7 +107,7 @@ def test(inputlang, output_lang, encoder, decoder, testing_pairs, device):
     }
 
     for pair in testing_pairs:
-        output_words = evaluate(inputlang, output_lang, encoder, decoder, pair[0], device)
+        output_words = evaluate(inputlang, output_lang, encoder, decoder, pair[0], model_type, device)
         output_sentence = ' '.join(output_words)
 
         input.append(pair[0])
@@ -123,6 +129,6 @@ def test(inputlang, output_lang, encoder, decoder, testing_pairs, device):
     metric_score["rouge2_precision"] = np.array(metric_score["rouge2_precision"]).mean()
     metric_score["rouge2_recall"] = np.array(metric_score["rouge2_recall"]).mean()
 
-    print(f'Rouge1 f/p/r: {metric_score["rouge1_fmeasure"]}/{metric_score["rouge1_precision"]}/{metric_score["rouge1_recall"]}')
-    print(f'Rouge2 f/p/r: {metric_score["rouge2_fmeasure"]}/{metric_score["rouge2_precision"]}/{metric_score["rouge2_recall"]}')
+    print(f'Rouge1 f/p/r: {metric_score["rouge1_fmeasure"]: .4f}/{metric_score["rouge1_precision"]: .4f}/{metric_score["rouge1_recall"]: .4f}')
+    print(f'Rouge2 f/p/r: {metric_score["rouge2_fmeasure"]: .4f}/{metric_score["rouge2_precision"]: .4f}/{metric_score["rouge2_recall"]: .4f}')
     return input,gt,predict,metric_score

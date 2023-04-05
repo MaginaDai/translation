@@ -18,8 +18,9 @@ epochs = 20
 parser = argparse.ArgumentParser(description='PyTorch Contrastive Learning for Wearable Sensing')
 
 parser.add_argument('-lr', default=0.01, type=float, metavar='LR', help='initial learning rate', dest='lr')
-parser.add_argument('-e', default=20, type=int, help='epoch')
+parser.add_argument('-e', default=1, type=int, help='epoch')
 parser.add_argument('-name', default='test', type=str, help='name of the model')
+parser.add_argument('-model_type', default='attention', type=str, help='name of the model')
 
 def main():
     torch.manual_seed(SEED)
@@ -39,8 +40,7 @@ def main():
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.1, random_state=42)
     train_pairs = list(zip(X_train,y_train))
     test_pairs = list(zip(X_test,y_test))
-    model_type = 'attention'
-    print(model_type)
+    model_type = args.model_type
     
     encoder1 = EncoderRNN(input_lang.n_words, hidden_size, model_type, device).to(device)
     decoder1 = Decoder(hidden_size, output_lang.n_words, model_type, device).to(device)
@@ -57,16 +57,8 @@ def main():
 
     logging.basicConfig(filename=os.path.join(log_dir, 'training.log'), level=logging.DEBUG)
 
-    trainIters(input_lang, output_lang, train_pairs, encoder1, decoder1, epochs, device, logging, print_every=5000, learning_rate=args.lr)
+    trainIters(input_lang, output_lang, train_pairs, test_pairs, encoder1, decoder1, epochs, model_type, device, logging, print_every=5000, learning_rate=args.lr)
     torch.save({'encoder': encoder1.state_dict(), 'decoder': decoder1.state_dict()}, store_model_dir)
-
-    input,gt,predict,score = test(input_lang, output_lang, encoder1, decoder1, train_pairs, device)
-    logging.info(f'Train Rouge1 f/p/r: {score["rouge1_fmeasure"]}/{score["rouge1_precision"]}/{score["rouge1_recall"]}')
-    logging.info(f'Train Rouge2 f/p/r: {score["rouge2_fmeasure"]}/{score["rouge2_precision"]}/{score["rouge2_recall"]}')
-    
-    input,gt,predict,score = test(input_lang, output_lang, encoder1, decoder1, test_pairs, device)
-    logging.info(f'Test Rouge1 f/p/r: {score["rouge1_fmeasure"]}/{score["rouge1_precision"]}/{score["rouge1_recall"]}')
-    logging.info(f'Test Rouge2 f/p/r: {score["rouge2_fmeasure"]}/{score["rouge2_precision"]}/{score["rouge2_recall"]}')
 
 if __name__ == '__main__':
     main()
