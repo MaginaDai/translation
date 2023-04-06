@@ -17,10 +17,11 @@ epochs = 20
 
 parser = argparse.ArgumentParser(description='PyTorch Contrastive Learning for Wearable Sensing')
 
-parser.add_argument('-lr', default=0.01, type=float, metavar='LR', help='initial learning rate', dest='lr')
+parser.add_argument('-lr', default=0.005, type=float, metavar='LR', help='initial learning rate', dest='lr')
 parser.add_argument('-e', default=1, type=int, help='epoch')
 parser.add_argument('-name', default='test', type=str, help='name of the model')
 parser.add_argument('-model_type', default='attention', type=str, help='name of the model')
+parser.add_argument('-load', default=None, type=str, help='the path to load the model')
 
 def main():
     torch.manual_seed(SEED)
@@ -45,7 +46,12 @@ def main():
     encoder1 = EncoderRNN(input_lang.n_words, hidden_size, model_type, device).to(device)
     decoder1 = Decoder(hidden_size, output_lang.n_words, model_type, device).to(device)
 
-    log_dir = f"e{args.e}_lr{args.lr}"
+    if args.load:
+        checkpoint = torch.load(args.load)
+        encoder1.load_state_dict(checkpoint['encoder'])
+        decoder1.load_state_dict(checkpoint['decoder'])
+
+    log_dir = f"{args.model_type}_e{args.e}_lr{args.lr}"
     if args.name:
         log_dir = args.name + '_' + log_dir
     log_dir = "runs/" + log_dir

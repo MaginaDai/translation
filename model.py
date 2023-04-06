@@ -90,13 +90,14 @@ class EncoderRNN(nn.Module):
             return torch.zeros(1, 1, self.hidden_size, device=self.device)
         
 class Attention(nn.Module):
-    def __init__(self, device):
+    def __init__(self, hidden_size, device):
         super(Attention, self).__init__()
         self.softmax = nn.Softmax(dim=1)
         self.device = device
+        self.proj = nn.Linear(hidden_size, hidden_size)
     
     def forward(self, hidden, encoder_hiddens):
-        attention_scores = torch.matmul(hidden[0], encoder_hiddens.T)
+        attention_scores = torch.matmul(hidden[0], self.proj(encoder_hiddens).T)
         dist = self.softmax(attention_scores)
         output = torch.matmul(dist, encoder_hiddens)
         return output
@@ -115,7 +116,7 @@ class Decoder(nn.Module):
         else:
             self.gru = nn.GRU(hidden_size, hidden_size)
         
-        self.attention = Attention(device)
+        self.attention = Attention(hidden_size, device)
 
         if self.model_type == 'bi-lstm' or self.model_type == 'attention':
             self.out = nn.Linear(hidden_size * 2, output_size)
